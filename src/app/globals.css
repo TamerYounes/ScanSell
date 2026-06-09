@@ -3,16 +3,12 @@
 @tailwind utilities;
 
 @layer base {
-  html {
-    -webkit-tap-highlight-color: transparent;
-  }
-  body {
-    @apply text-slate-800;
-  }
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply text-slate-900 antialiased; background: #f7f9fc; }
+  button, input, select { font: inherit; }
 }
 
 @layer utilities {
-  .safe-area-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .app-card { @apply rounded-xl border border-slate-200 bg-white shadow-sm; }
 }

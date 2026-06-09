@@ -1,181 +1,80 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/utils";
-import { StatCard } from "@/components/ui/StatCard";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
-import { PageHeader } from "@/components/layout/PageHeader";
 import type { DbSale, ProductWithStock } from "@/types";
 
 function isToday(iso: string) {
-  const d = new Date(iso);
-  const n = new Date();
-  return d.getFullYear() === n.getFullYear() &&
-    d.getMonth() === n.getMonth() &&
-    d.getDate() === n.getDate();
+  const d = new Date(iso); const n = new Date();
+  return d.toDateString() === n.toDateString();
 }
 
 export default function EmployeeDashboard() {
   const supabase = createClient();
-
   const [inventory, setInventory] = useState<ProductWithStock[]>([]);
-  const [sales, setSales]         = useState<DbSale[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [sales, setSales] = useState<DbSale[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Fetch assigned inventory joined with product details
-      const { data: invRows } = await supabase
-        .from("employee_inventory")
-        .select("quantity, products(*)")
-        .eq("employee_id", user.id);
-
-      const inv: ProductWithStock[] = (invRows ?? []).map((row: any) => ({
-        ...row.products,
-        stockQuantity: row.quantity,
-      }));
-
-      // Fetch this employee's sales (RLS enforces employee_id = auth.uid())
-      const { data: saleRows } = await supabase
-        .from("sales")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      setInventory(inv);
-      setSales(saleRows ?? []);
-      setLoading(false);
+      const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
+      const [{ data: invRows }, { data: saleRows }] = await Promise.all([
+        supabase.from("employee_inventory").select("quantity, products(*)").eq("employee_id", user.id),
+        supabase.from("sales").select("*").order("created_at", { ascending: false }),
+      ]);
+      setInventory((invRows ?? []).map((row: any) => ({ ...row.products, stockQuantity: row.quantity })));
+      setSales(saleRows ?? []); setLoading(false);
     }
     load();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const todaysSales  = sales.filter((s) => isToday(s.created_at));
-  const todaysTotal  = todaysSales.reduce((sum, s) => sum + Number(s.total_amount), 0);
-  const lowStock     = inventory.filter((p) => p.stockQuantity <= p.low_stock_limit);
+  const todaysSales = sales.filter(s => isToday(s.created_at));
+  const todaysTotal = todaysSales.reduce((sum, s) => sum + Number(s.total_amount), 0);
+  const totalAssigned = inventory.reduce((sum, p) => sum + p.stockQuantity, 0);
+  const lowStock = inventory.filter(p => p.stockQuantity <= p.low_stock_limit);
+  const weekly = useMemo(() => {
+    const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (6 - i)); d.setHours(0,0,0,0); return d; });
+    return days.map(day => ({ label: day.toLocaleDateString("en-CA", { weekday: "short" }), value: sales.filter(s => new Date(s.created_at).toDateString() === day.toDateString()).length }));
+  }, [sales]);
+  const maxWeekly = Math.max(1, ...weekly.map(d => d.value));
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-[60vh] grid place-items-center"><div className="h-9 w-9 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin"/></div>;
 
-  return (
-    <div>
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <StatCard
-          label="Today's Revenue"
-          value={formatCurrency(todaysTotal)}
-          iconBg="bg-indigo-100"
-          icon={
-            <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-        />
-        <StatCard
-          label="Sales Today"
-          value={String(todaysSales.length)}
-          iconBg="bg-emerald-100"
-          sub="transactions"
-          icon={
-            <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          }
-        />
-      </div>
+  const statCards = [
+    { label: "TODAY'S SALES", value: String(todaysSales.length), sub: "transactions", tone: "blue", icon: "🛒" },
+    { label: "TODAY'S REVENUE", value: formatCurrency(todaysTotal), sub: "live total", tone: "green", icon: "$" },
+    { label: "ASSIGNED", value: String(totalAssigned), sub: "items left", tone: "purple", icon: "◇" },
+    { label: "LOW STOCK", value: String(lowStock.length), sub: "need attention", tone: "amber", icon: "!" },
+  ];
 
-      {/* New Sale CTA */}
-      <Link href="/employee/new-sale">
-        <Card className="p-5 bg-indigo-600 border-0 mb-6 cursor-pointer hover:bg-indigo-700 transition-colors">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-indigo-200 text-sm font-medium mb-1">Ready to sell?</p>
-              <p className="text-white text-lg font-bold">Start a New Sale</p>
-            </div>
-            <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
-            </div>
-          </div>
-        </Card>
-      </Link>
-
-      {/* Low Stock */}
-      <PageHeader
-        title="My Low Stock"
-        subtitle={lowStock.length === 0 ? "All stocked up!" : `${lowStock.length} item${lowStock.length !== 1 ? "s" : ""} running low`}
-        action={
-          <Link href="/employee/inventory">
-            <Button variant="ghost" size="sm" className="text-indigo-600">View all</Button>
-          </Link>
-        }
-      />
-
-      {lowStock.length === 0 ? (
-        <Card className="p-6 text-center mb-6">
-          <div className="w-12 h-12 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
-            <svg className="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <p className="text-slate-500 text-sm">All your products are well stocked!</p>
-        </Card>
-      ) : (
-        <div className="space-y-2 mb-6">
-          {lowStock.map((p) => (
-            <Card key={p.id} className="p-3.5 flex items-center justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-700 truncate">{p.name}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{p.category}</p>
-              </div>
-              <Badge variant={p.stockQuantity === 0 ? "danger" : "warning"}>
-                {p.stockQuantity === 0 ? "Out of stock" : `${p.stockQuantity} left`}
-              </Badge>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Today's sales */}
-      {todaysSales.length > 0 && (
-        <>
-          <PageHeader
-            title="Today's Sales"
-            action={
-              <Link href="/employee/sales-history">
-                <Button variant="ghost" size="sm" className="text-indigo-600">See all</Button>
-              </Link>
-            }
-          />
-          <div className="space-y-2">
-            {todaysSales.slice(0, 3).map((sale) => (
-              <Card key={sale.id} className="p-3.5 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs text-slate-400">
-                    {new Date(sale.created_at).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", hour12: true })}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-slate-800">{formatCurrency(Number(sale.total_amount))}</p>
-                  <Badge variant="neutral" className="mt-0.5">{sale.payment_method}</Badge>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
+  return <div className="space-y-5">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {statCards.map(card => <div key={card.label} className="app-card p-5 flex items-start justify-between"><div><p className="text-[11px] font-semibold tracking-wide text-slate-500">{card.label}</p><p className="mt-2 text-2xl font-bold">{card.value}</p><p className="mt-1 text-xs text-slate-500">{card.sub}</p></div><div className={`grid h-11 w-11 place-items-center rounded-lg text-xl font-bold ${card.tone === "blue" ? "bg-blue-100 text-blue-700" : card.tone === "green" ? "bg-emerald-100 text-emerald-600" : card.tone === "purple" ? "bg-purple-100 text-purple-600" : "bg-amber-100 text-amber-600"}`}>{card.icon}</div></div>)}
     </div>
-  );
+
+    <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
+      <section className="app-card p-5 md:p-6">
+        <h2 className="text-base font-bold">Weekly Performance</h2><p className="text-sm text-slate-500 mt-1">Your sales activity this week</p>
+        <div className="mt-7 h-64 flex items-end gap-3 md:gap-5 border-b border-slate-200 px-2">
+          {weekly.map(day => <div key={day.label} className="flex-1 h-full flex flex-col justify-end items-center gap-2"><div className="w-full max-w-[76px] rounded-t-md bg-[#5976eb] transition-all" style={{ height: `${Math.max(day.value ? 18 : 4, (day.value / maxWeekly) * 88)}%` }} title={`${day.value} sales`}/><span className="pb-2 text-xs text-slate-500">{day.label}</span></div>)}
+        </div>
+      </section>
+
+      <section className="app-card p-5 md:p-6">
+        <div className="flex items-center justify-between"><div><h2 className="text-base font-bold">Recent Sales</h2><p className="text-sm text-slate-500 mt-1">Your latest transactions</p></div><Link href="/employee/sales-history" className="text-sm font-semibold text-blue-700">View all</Link></div>
+        <div className="mt-5 divide-y divide-slate-100">
+          {sales.slice(0, 4).map(sale => <div key={sale.id} className="py-4 flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">{sale.payment_method}</p><p className="mt-1 text-xs text-slate-500">{new Date(sale.created_at).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</p></div><div className="text-right"><span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700">Completed</span><p className="mt-2 text-sm font-bold">{formatCurrency(Number(sale.total_amount))}</p></div></div>)}
+          {sales.length === 0 && <div className="py-10 text-center text-sm text-slate-500">No sales yet.</div>}
+        </div>
+      </section>
+    </div>
+
+    <section className="app-card overflow-hidden">
+      <div className="flex flex-col gap-3 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-base font-bold">My Assigned Inventory</h2><p className="text-sm text-slate-500 mt-1">Products currently assigned to you</p></div><Link href="/employee/new-sale" className="inline-flex justify-center rounded-lg bg-[#3b43bb] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#3037a5]">Start New Sale</Link></div>
+      <div className="overflow-x-auto"><table className="min-w-full text-sm"><thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">Product</th><th className="px-5 py-3">Barcode</th><th className="px-5 py-3">Price</th><th className="px-5 py-3">Remaining</th><th className="px-5 py-3">Status</th></tr></thead><tbody className="divide-y divide-slate-100">{inventory.map(p => <tr key={p.id}><td className="px-5 py-4 font-semibold">{p.name}</td><td className="px-5 py-4 text-slate-500">{p.barcode}</td><td className="px-5 py-4">{formatCurrency(Number(p.price))}</td><td className="px-5 py-4 font-semibold">{p.stockQuantity}</td><td className="px-5 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${p.stockQuantity === 0 ? "bg-red-50 text-red-700" : p.stockQuantity <= p.low_stock_limit ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>{p.stockQuantity === 0 ? "Out" : p.stockQuantity <= p.low_stock_limit ? "Low" : "In stock"}</span></td></tr>)}{inventory.length === 0 && <tr><td colSpan={5} className="px-5 py-12 text-center text-slate-500">No inventory assigned yet.</td></tr>}</tbody></table></div>
+    </section>
+  </div>;
 }

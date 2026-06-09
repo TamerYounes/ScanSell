@@ -1,22 +1,19 @@
-```gitignore
+# Dependencies
 node_modules/
+
+# Build output
 .next/
 out/
 
+# Environment — NEVER commit secrets
 .env
 .env.local
 .env.*.local
 
-*.tsbuildinfo
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-.vscode/
-.idea/
-
+# OS
 .DS_Store
 Thumbs.db
-```
 
+# Editor
+.vscode/
+.idea/
