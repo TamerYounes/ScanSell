@@ -1,273 +1,204 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { formatCurrency } from "@/lib/utils";
-import { StatCard } from "@/components/ui/StatCard";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { formatCurrency, formatTime } from "@/lib/utils";
+import { sellerStockLevel, warehouseStockLevel, type StockLevel } from "@/lib/stock";
 import { PageHeader } from "@/components/layout/PageHeader";
-import type { DbProfile, DbSale, ProductWithStock } from "@/types";
+import { Stats } from "@/components/ui/Stats";
+import { Panel, Row } from "@/components/ui/Panel";
+import { Avatar } from "@/components/ui/Avatar";
+import { StockBadge } from "@/components/ui/Badge";
+import { Empty, Loading } from "@/components/ui/States";
+import type { DbProduct, DbProfile } from "@/types";
+import type { SaleWithItems } from "@/components/SalesList";
 
-interface EmployeeSummary {
-  employee: DbProfile;
-  todayCount: number;
-  todayRevenue: number;
-  totalRevenue: number;
-  stockCount: number;
-  lowCount: number;
+interface SellerToday {
+  seller: DbProfile;
+  salesToday: number;
+  revenueToday: number;
+  unitsHeld: number;
 }
 
-interface LowStockAlert {
-  product: ProductWithStock;
-  employeeName: string;
-  employeeColor: string;
-  employeeInitials: string;
+interface LowItem {
+  key: string;
+  product: string;
+  where: string;
+  quantity: number;
+  level: StockLevel;
 }
 
-function isToday(iso: string) {
-  const d = new Date(iso);
-  const n = new Date();
-  return (
-    d.getFullYear() === n.getFullYear() &&
-    d.getMonth() === n.getMonth() &&
-    d.getDate() === n.getDate()
-  );
-}
+const isToday = (iso: string) => new Date(iso).toDateString() === new Date().toDateString();
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
+const linkClass = "text-sm font-medium text-pine hover:underline underline-offset-2";
 
 export default function OwnerDashboard() {
   const supabase = createClient();
 
-  const [employees, setEmployees]         = useState<DbProfile[]>([]);
-  const [allSales, setAllSales]           = useState<DbSale[]>([]);
-  const [summaries, setSummaries]         = useState<EmployeeSummary[]>([]);
-  const [lowStockAlerts, setLowStockAlerts] = useState<LowStockAlert[]>([]);
-  const [loading, setLoading]             = useState(true);
+  const [team, setTeam] = useState<SellerToday[]>([]);
+  const [lowItems, setLowItems] = useState<LowItem[]>([]);
+  const [sales, setSales] = useState<SaleWithItems[]>([]);
+  const [products, setProducts] = useState<DbProduct[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      // All employees
-      const { data: empRows } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("role", "employee")
-        .eq("is_active", true)
-        .order("full_name");
+      const [{ data: people }, { data: saleRows }, { data: held }, { data: productRows }] = await Promise.all([
+        supabase.from("profiles").select("*").eq("role", "employee").eq("is_active", true).order("full_name"),
+        supabase.from("sales").select("*, sale_items(*)").order("created_at", { ascending: false }),
+        supabase.from("employee_inventory").select("employee_id, quantity, products(*)"),
+        supabase.from("products").select("*").eq("is_active", true).order("name"),
+      ]);
 
-      const emps: DbProfile[] = empRows ?? [];
+      const sellers = people ?? [];
+      const allSales = (saleRows as SaleWithItems[]) ?? [];
+      const holdings = held ?? [];
+      const catalog = productRows ?? [];
 
-      // All sales
-      const { data: saleRows } = await supabase
-        .from("sales")
-        .select("*")
-        .order("created_at", { ascending: false });
+      setTeam(
+        sellers.map((seller) => {
+          const today = allSales.filter((s) => s.employee_id === seller.id && isToday(s.created_at));
+          return {
+            seller,
+            salesToday: today.length,
+            revenueToday: today.reduce((sum, s) => sum + Number(s.total_amount), 0),
+            unitsHeld: holdings
+              .filter((h) => h.employee_id === seller.id)
+              .reduce((sum, h) => sum + h.quantity, 0),
+          };
+        }),
+      );
 
-      const sales: DbSale[] = saleRows ?? [];
-
-      // All employee inventory joined with products
-      const { data: invRows } = await supabase
-        .from("employee_inventory")
-        .select("employee_id, quantity, products(*)");
-
-      // Build per-employee summaries
-      const built: EmployeeSummary[] = emps.map((emp) => {
-        const empSales    = sales.filter((s) => s.employee_id === emp.id);
-        const todaySales  = empSales.filter((s) => isToday(s.created_at));
-        const empInv      = (invRows ?? []).filter((r) => r.employee_id === emp.id);
-        const lowCount    = empInv.filter(
-          (r) => r.quantity <= r.products.low_stock_limit
-        ).length;
-
-        return {
-          employee:     emp,
-          todayCount:   todaySales.length,
-          todayRevenue: todaySales.reduce((s, sale) => s + Number(sale.total_amount), 0),
-          totalRevenue: empSales.reduce((s, sale) => s + Number(sale.total_amount), 0),
-          stockCount:   empInv.length,
-          lowCount,
-        };
-      });
-
-      // Build low-stock alerts across all employees
-      const alerts: LowStockAlert[] = [];
-      for (const emp of emps) {
-        const empInv = (invRows ?? []).filter((r) => r.employee_id === emp.id);
-        for (const row of empInv) {
-          if (row.quantity <= row.products.low_stock_limit) {
-            alerts.push({
-              product: { ...row.products, stockQuantity: row.quantity },
-              employeeName:     emp.full_name,
-              employeeColor:    emp.avatar_color,
-              employeeInitials: getInitials(emp.full_name),
-            });
-          }
+      const low: LowItem[] = [];
+      for (const product of catalog) {
+        const level = warehouseStockLevel(product);
+        if (level !== "ok") {
+          low.push({ key: `w-${product.id}`, product: product.name, where: "Warehouse", quantity: product.warehouse_stock, level });
         }
       }
+      for (const h of holdings) {
+        const seller = sellers.find((s) => s.id === h.employee_id);
+        const level = sellerStockLevel(h.quantity);
+        if (seller && h.products && level !== "ok") {
+          low.push({ key: `${h.employee_id}-${h.products.id}`, product: h.products.name, where: seller.full_name, quantity: h.quantity, level });
+        }
+      }
+      low.sort((a, b) => a.quantity - b.quantity);
 
-      setEmployees(emps);
-      setAllSales(sales);
-      setSummaries(built);
-      setLowStockAlerts(alerts);
+      setLowItems(low);
+      setSales(allSales);
+      setProducts(catalog);
       setLoading(false);
     }
     load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const todaysSales   = allSales.filter((s) => isToday(s.created_at));
-  const todaysRevenue = todaysSales.reduce((s, sale) => s + Number(sale.total_amount), 0);
-  const totalRevenue  = allSales.reduce((s, sale) => s + Number(sale.total_amount), 0);
+  if (loading) return <Loading />;
 
-  const dateLabel = new Date().toLocaleDateString("en-CA", {
-    weekday: "long", month: "long", day: "numeric",
-  });
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
+  const today = sales.filter((s) => isToday(s.created_at));
+  const weekAgo = Date.now() - 7 * 86_400_000;
+  const lastWeek = sales.filter((s) => new Date(s.created_at).getTime() >= weekAgo);
+  const productName = (id: string) => products.find((p) => p.id === id)?.name ?? "Removed product";
+  const sellerName = (id: string) => team.find((t) => t.seller.id === id)?.seller.full_name ?? "Former employee";
 
   return (
-    <div>
-      <div className="mb-5">
-        <p className="text-xs text-slate-400 font-medium">{dateLabel}</p>
-        <h1 className="text-xl font-bold text-slate-800 mt-0.5">Business Overview</h1>
-      </div>
-
-      {/* Top stats */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
-        <StatCard
-          label="Today's Revenue"
-          value={formatCurrency(todaysRevenue)}
-          iconBg="bg-indigo-100"
-          icon={
-            <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          }
-        />
-        <StatCard
-          label="Sales Today"
-          value={String(todaysSales.length)}
-          iconBg="bg-emerald-100"
-          sub={`across ${employees.length} reps`}
-          icon={
-            <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          }
-        />
-        <StatCard
-          label="All-Time Revenue"
-          value={formatCurrency(totalRevenue)}
-          iconBg="bg-violet-100"
-          icon={
-            <svg className="w-5 h-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-            </svg>
-          }
-        />
-        <StatCard
-          label="Low Stock Alerts"
-          value={String(lowStockAlerts.length)}
-          iconBg={lowStockAlerts.length > 0 ? "bg-amber-100" : "bg-emerald-100"}
-          icon={
-            <svg
-              className={`w-5 h-5 ${lowStockAlerts.length > 0 ? "text-amber-600" : "text-emerald-600"}`}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          }
-        />
-      </div>
-
-      {/* Employee performance */}
+    <div className="space-y-5">
       <PageHeader
-        title="Today by Employee"
-        action={
-          <Link href="/owner/employees" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-            Manage →
-          </Link>
-        }
+        title="Overview"
+        subtitle={new Date().toLocaleDateString("en-CA", { weekday: "long", month: "long", day: "numeric" })}
       />
-      <div className="space-y-2 mb-6">
-        {summaries.map(({ employee, todayCount, todayRevenue, lowCount, stockCount }) => (
-          <Card key={employee.id} className="p-3.5">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 ${employee.avatar_color} rounded-xl flex items-center justify-center text-white text-sm font-bold flex-shrink-0`}>
-                {getInitials(employee.full_name)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800">{employee.full_name}</p>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span className="text-xs text-slate-500">{stockCount} products assigned</span>
-                  {lowCount > 0 && <Badge variant="warning">{lowCount} low stock</Badge>}
-                </div>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-sm font-bold text-slate-800">{formatCurrency(todayRevenue)}</p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {todayCount} sale{todayCount !== 1 ? "s" : ""} today
-                </p>
-              </div>
-            </div>
-          </Card>
-        ))}
 
-        {employees.length === 0 && (
-          <Card className="p-6 text-center">
-            <p className="text-slate-400 text-sm">No employees yet.</p>
-            <Link href="/owner/employees" className="text-xs text-indigo-600 font-semibold mt-1 inline-block">
-              Add your first employee →
-            </Link>
-          </Card>
-        )}
+      <Stats
+        items={[
+          { label: "Sales today", value: String(today.length) },
+          { label: "Revenue today", value: formatCurrency(today.reduce((s, x) => s + Number(x.total_amount), 0)) },
+          { label: "Last 7 days", value: formatCurrency(lastWeek.reduce((s, x) => s + Number(x.total_amount), 0)) },
+          {
+            label: "Running low",
+            value: String(lowItems.length),
+            tone: lowItems.length > 0 ? "warning" : "default",
+          },
+        ]}
+      />
+
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Panel title="Team today" action={<Link href="/owner/employees" className={linkClass}>Manage</Link>}>
+          {team.length === 0 ? (
+            <Empty title="No one on the team yet">
+              <Link href="/owner/employees" className={linkClass}>Invite your first seller</Link>
+            </Empty>
+          ) : (
+            team.map(({ seller, salesToday, revenueToday, unitsHeld }) => (
+              <Row key={seller.id}>
+                <Avatar name={seller.full_name} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-ink">{seller.full_name}</p>
+                  <p className="text-xs text-muted">{unitsHeld} units on hand</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-ink">{formatCurrency(revenueToday)}</p>
+                  <p className="text-xs text-muted">
+                    {salesToday} {salesToday === 1 ? "sale" : "sales"}
+                  </p>
+                </div>
+              </Row>
+            ))
+          )}
+        </Panel>
+
+        <Panel title="Running low" action={<Link href="/owner/inventory" className={linkClass}>All stock</Link>}>
+          {lowItems.length === 0 ? (
+            <Empty title="Nothing is running low" />
+          ) : (
+            lowItems.slice(0, 6).map((item) => (
+              <Row key={item.key}>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-ink">{item.product}</p>
+                  <p className="text-xs text-muted">{item.where}</p>
+                </div>
+                <span className="text-sm font-medium text-ink">{item.quantity}</span>
+                <StockBadge level={item.level} />
+              </Row>
+            ))
+          )}
+          {lowItems.length > 6 && (
+            <Row>
+              <Link href="/owner/inventory" className={linkClass}>
+                {lowItems.length - 6} more
+              </Link>
+            </Row>
+          )}
+        </Panel>
       </div>
 
-      {/* Low stock alerts */}
-      {lowStockAlerts.length > 0 && (
-        <>
-          <PageHeader
-            title="Low Stock Alerts"
-            subtitle="Across all employees"
-            action={
-              <Link href="/owner/inventory" className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-                View all →
-              </Link>
-            }
-          />
-          <div className="space-y-2">
-            {lowStockAlerts.slice(0, 5).map((alert, idx) => (
-              <Card key={idx} className="p-3.5 flex items-center gap-3">
-                <div className={`w-8 h-8 ${alert.employeeColor} rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
-                  {alert.employeeInitials}
+      <Panel title="Latest sales" action={<Link href="/owner/sales" className={linkClass}>All sales</Link>}>
+        {sales.length === 0 ? (
+          <Empty title="No sales yet" />
+        ) : (
+          sales.slice(0, 5).map((sale) => {
+            const [first, ...rest] = sale.sale_items;
+            return (
+              <Row key={sale.id}>
+                <span className="w-[4.75rem] flex-shrink-0 whitespace-nowrap text-sm text-muted">
+                  {isToday(sale.created_at)
+                    ? formatTime(sale.created_at)
+                    : new Date(sale.created_at).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-ink">
+                    {first ? productName(first.product_id) : "No items"}
+                    {rest.length > 0 && ` and ${rest.length} more`}
+                  </p>
+                  <p className="text-xs text-muted">{sellerName(sale.employee_id)}</p>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-700 truncate">{alert.product.name}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{alert.employeeName}</p>
-                </div>
-                <Badge variant={alert.product.stockQuantity === 0 ? "danger" : "warning"}>
-                  {alert.product.stockQuantity === 0 ? "Out" : `${alert.product.stockQuantity} left`}
-                </Badge>
-              </Card>
-            ))}
-          </div>
-        </>
-      )}
+                <span className="text-sm font-medium text-ink">{formatCurrency(Number(sale.total_amount))}</span>
+              </Row>
+            );
+          })
+        )}
+      </Panel>
     </div>
   );
 }

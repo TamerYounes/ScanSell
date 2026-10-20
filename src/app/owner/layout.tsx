@@ -1,167 +1,17 @@
-"use client";
+import { AppShell, type NavItem } from "@/components/layout/AppShell";
 
-import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
-import { classNames } from "@/lib/utils";
-import type { DbProfile } from "@/types";
-
-const navItems = [
-  {
-    href: "/owner/dashboard",
-    label: "Dashboard",
-    icon: (active: boolean) => (
-      <svg className={classNames("w-5 h-5", active ? "text-indigo-600" : "text-slate-400")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-      </svg>
-    ),
-  },
-  {
-    href: "/owner/employees",
-    label: "Employees",
-    icon: (active: boolean) => (
-      <svg className={classNames("w-5 h-5", active ? "text-indigo-600" : "text-slate-400")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/owner/products",
-    label: "Products",
-    icon: (active: boolean) => (
-      <svg className={classNames("w-5 h-5", active ? "text-indigo-600" : "text-slate-400")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6v12M7 6v12M10 6v12M14 6v12M17 6v12M20 6v12" />
-      </svg>
-    ),
-  },
-  {
-    href: "/owner/inventory",
-    label: "Inventory",
-    icon: (active: boolean) => (
-      <svg className={classNames("w-5 h-5", active ? "text-indigo-600" : "text-slate-400")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-      </svg>
-    ),
-  },
-  {
-    href: "/owner/sales",
-    label: "All Sales",
-    icon: (active: boolean) => (
-      <svg className={classNames("w-5 h-5", active ? "text-indigo-600" : "text-slate-400")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-      </svg>
-    ),
-  },
+const nav: NavItem[] = [
+  { href: "/owner/dashboard", label: "Overview", icon: "home" },
+  { href: "/owner/products", label: "Products", icon: "products" },
+  { href: "/owner/inventory", label: "Stock", icon: "stock" },
+  { href: "/owner/employees", label: "Team", icon: "team" },
+  { href: "/owner/sales", label: "Sales", icon: "sales" },
 ];
 
-function getInitials(name: string) {
-  return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
-}
-
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
-  const router   = useRouter();
-  const pathname = usePathname();
-  const supabase = createClient();
-
-  const [profile, setProfile] = useState<DbProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace("/"); return; }
-
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single<DbProfile>();
-
-      if (!data) { router.replace("/"); return; }
-      if (data.role !== "owner") { router.replace("/employee"); return; }
-      if (!data.is_active) {
-        await supabase.auth.signOut();
-        router.replace("/?inactive=1");
-        return;
-      }
-
-      setProfile(data);
-      setLoading(false);
-    }
-    loadProfile();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.push("/");
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!profile) return null;
-
   return (
-    <div className="max-w-lg mx-auto min-h-screen flex flex-col bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100 px-4 py-3 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center">
-            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-            </svg>
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-800 leading-none">Stockpile</p>
-            <p className="text-xs text-indigo-600 font-medium mt-0.5">Owner Dashboard</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className={`w-8 h-8 ${profile.avatar_color} rounded-xl flex items-center justify-center text-white text-xs font-bold`}>
-            {getInitials(profile.full_name)}
-          </div>
-          <button
-            onClick={handleSignOut}
-            className="ml-1 text-xs font-medium text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-full transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
-
-      <main className="flex-1 px-4 pt-5 pb-28">{children}</main>
-
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-100">
-        <div className="max-w-lg mx-auto flex items-center">
-          {navItems.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors"
-              >
-                {item.icon(active)}
-                <span className={classNames(
-                  "text-[10px] font-medium",
-                  active ? "text-indigo-600" : "text-slate-400"
-                )}>
-                  {item.label}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-    </div>
+    <AppShell role="owner" nav={nav}>
+      {children}
+    </AppShell>
   );
 }

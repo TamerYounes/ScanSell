@@ -10,9 +10,12 @@ import {
   type ProductForm,
   type ProductFormErrors,
 } from "@/lib/products";
-import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
+import { warehouseStockLevel } from "@/lib/stock";
+import { Badge, StockBadge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Panel, Row } from "@/components/ui/Panel";
+import { Icon } from "@/components/ui/Icon";
+import { Empty, Loading, Notice } from "@/components/ui/States";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { BarcodeScanner } from "@/components/BarcodeScanner";
 import type { DbProduct } from "@/types";
@@ -35,7 +38,7 @@ const fields: { key: keyof ProductForm; label: string; inputMode?: "decimal" | "
   { key: "category", label: "Category" },
   { key: "price", label: "Price", inputMode: "decimal" },
   { key: "warehouseStock", label: "Warehouse stock", inputMode: "numeric" },
-  { key: "lowStockLimit", label: "Low stock warning at", inputMode: "numeric" },
+  { key: "lowStockLimit", label: "Warn when the warehouse is down to", inputMode: "numeric" },
 ];
 
 export default function OwnerProductsPage() {
@@ -150,157 +153,140 @@ export default function OwnerProductsPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-8 h-8 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <Loading />;
+
+  const editingProduct = editing?.id ? products.find((p) => p.id === editing.id) : null;
+  const activeCount = products.filter((p) => p.is_active).length;
 
   return (
     <div>
       <PageHeader
         title="Products"
-        subtitle={`${products.filter((p) => p.is_active).length} active`}
-        action={
-          <button
-            onClick={() => openNew()}
-            className="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors"
-          >
-            + Add
-          </button>
-        }
+        subtitle={`${activeCount} active`}
+        action={<Button onClick={() => openNew()}>Add product</Button>}
       />
 
-      <div className="flex gap-2 mb-3">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search name, barcode or category"
-          className="flex-1 min-w-0 rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-        />
-        <Button variant="outline" onClick={() => setScanning("search")}>
-          Scan
+      <div className="mb-3 flex gap-2">
+        <div className="relative flex-1">
+          <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, barcode or category"
+            className="field pl-9"
+          />
+        </div>
+        <Button variant="secondary" onClick={() => setScanning("search")} aria-label="Scan a barcode to find a product">
+          <Icon name="scan" className="h-[18px] w-[18px]" />
+          <span className="hidden sm:inline">Scan</span>
         </Button>
       </div>
 
-      <label className="flex items-center gap-2 mb-4 text-xs text-slate-500">
+      <label className="mb-4 flex items-center gap-2 text-sm text-muted">
         <input
           type="checkbox"
           checked={showInactive}
           onChange={(e) => setShowInactive(e.target.checked)}
+          className="h-4 w-4 accent-[#1F5F4A]"
         />
-        Show inactive products
+        Show deactivated products
       </label>
 
-      {visible.length === 0 ? (
-        <Card className="p-8 text-center">
-          <p className="text-sm text-slate-500">
-            {products.length === 0
-              ? "No products yet. Add one, or scan a barcode to start."
-              : "No products match that search."}
-          </p>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {visible.map((product) => (
-            <Card key={product.id} className="p-3.5" onClick={() => openEdit(product)}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate">{product.name}</p>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
-                    <span className="text-xs font-mono text-slate-400">{product.barcode}</span>
-                    <Badge variant="neutral">{product.category}</Badge>
-                    {!product.is_active && <Badge variant="neutral">Inactive</Badge>}
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold text-slate-800">
-                    {formatCurrency(Number(product.price))}
-                  </p>
-                  <p
-                    className={`text-xs mt-0.5 ${
-                      product.warehouse_stock <= product.low_stock_limit
-                        ? "text-amber-600 font-semibold"
-                        : "text-slate-500"
-                    }`}
-                  >
-                    {product.warehouse_stock} in warehouse
-                  </p>
-                </div>
+      <Panel>
+        {visible.length === 0 ? (
+          products.length === 0 ? (
+            <Empty title="No products yet">Add one, or scan a barcode to start.</Empty>
+          ) : (
+            <Empty title="No products match that search" />
+          )
+        ) : (
+          visible.map((product) => (
+            <Row key={product.id} onClick={() => openEdit(product)}>
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-2 truncate text-sm font-medium text-ink">
+                  <span className="truncate">{product.name}</span>
+                  {!product.is_active && <Badge>Deactivated</Badge>}
+                </p>
+                <p className="text-xs text-muted">
+                  {product.category}
+                  <span className="ml-2 text-faint">{product.barcode}</span>
+                </p>
               </div>
-            </Card>
-          ))}
-        </div>
-      )}
+              <div className="text-right">
+                <p className="text-sm text-ink">{formatCurrency(Number(product.price))}</p>
+                <p className="flex items-center justify-end gap-1.5 text-xs text-muted">
+                  <StockBadge level={warehouseStockLevel(product)} />
+                  {product.warehouse_stock} in warehouse
+                </p>
+              </div>
+            </Row>
+          ))
+        )}
+      </Panel>
 
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
-          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-slate-800">
-                {editing.id ? "Edit product" : "New product"}
-              </h2>
-              <button
-                onClick={() => setEditing(null)}
-                className="text-sm font-semibold text-slate-500 hover:text-slate-700"
-              >
-                Cancel
+        <div
+          className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40 sm:items-center sm:p-4"
+          onClick={() => setEditing(null)}
+        >
+          <div
+            role="dialog"
+            aria-label={editing.id ? "Edit product" : "Add product"}
+            className="safe-bottom max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-lg bg-white sm:rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-line px-4 py-3">
+              <h2 className="text-sm font-semibold text-ink">{editing.id ? "Edit product" : "Add product"}</h2>
+              <button onClick={() => setEditing(null)} className="text-muted hover:text-ink" aria-label="Close">
+                <Icon name="close" />
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4 p-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Barcode</label>
+                <label htmlFor="barcode" className="mb-1 block text-sm font-medium text-ink">
+                  Barcode
+                </label>
                 <div className="flex gap-2">
                   <input
+                    id="barcode"
                     value={editing.form.barcode}
-                    onChange={(e) =>
-                      setEditing({ ...editing, form: { ...editing.form, barcode: e.target.value } })
-                    }
-                    className="flex-1 min-w-0 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    inputMode="numeric"
+                    onChange={(e) => setEditing({ ...editing, form: { ...editing.form, barcode: e.target.value } })}
+                    className="field"
                   />
-                  <Button variant="outline" onClick={() => setScanning("form")}>
-                    Scan
+                  <Button variant="secondary" onClick={() => setScanning("form")} aria-label="Scan barcode">
+                    <Icon name="scan" className="h-[18px] w-[18px]" />
                   </Button>
                 </div>
-                {errors.barcode && <p className="mt-1 text-xs text-red-600">{errors.barcode}</p>}
+                {errors.barcode && <p className="mt-1 text-xs text-red-700">{errors.barcode}</p>}
               </div>
 
               {fields.map(({ key, label, inputMode }) => (
                 <div key={key}>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">{label}</label>
+                  <label htmlFor={key} className="mb-1 block text-sm font-medium text-ink">
+                    {label}
+                  </label>
                   <input
+                    id={key}
                     value={editing.form[key]}
                     inputMode={inputMode}
-                    onChange={(e) =>
-                      setEditing({ ...editing, form: { ...editing.form, [key]: e.target.value } })
-                    }
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    onChange={(e) => setEditing({ ...editing, form: { ...editing.form, [key]: e.target.value } })}
+                    className="field"
                   />
-                  {errors[key] && <p className="mt-1 text-xs text-red-600">{errors[key]}</p>}
+                  {errors[key] && <p className="mt-1 text-xs text-red-700">{errors[key]}</p>}
                 </div>
               ))}
 
-              {errors.form && <p className="text-sm text-red-600">{errors.form}</p>}
+              {errors.form && <Notice tone="error">{errors.form}</Notice>}
 
-              <Button fullWidth onClick={handleSave} disabled={saving}>
-                {saving ? "Saving..." : editing.id ? "Save changes" : "Add product"}
+              <Button size="lg" fullWidth onClick={handleSave} disabled={saving}>
+                {saving ? "Saving…" : editing.id ? "Save changes" : "Add product"}
               </Button>
 
-              {editing.id && (
-                <Button
-                  fullWidth
-                  variant="ghost"
-                  onClick={() => {
-                    const product = products.find((p) => p.id === editing.id);
-                    if (product) toggleActive(product);
-                  }}
-                >
-                  {products.find((p) => p.id === editing.id)?.is_active
-                    ? "Deactivate product"
-                    : "Reactivate product"}
+              {editingProduct && (
+                <Button variant="ghost" fullWidth onClick={() => toggleActive(editingProduct)}>
+                  {editingProduct.is_active ? "Deactivate product" : "Reactivate product"}
                 </Button>
               )}
             </div>

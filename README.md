@@ -25,6 +25,8 @@ Inventory and sales tracking for small resale businesses where the owner hands s
 
 **Adding employees.** The owner creates an invite link (`/join/XXXX-XXXX-XXXX`) and sends it. The code is checked in the sign-up trigger: a valid one makes the new account an active employee and is used up, and a used or expired one fails the sign-up. Accounts created any other way, including directly against the Supabase API, start inactive until the owner gives them access. Deactivating an employee returns the stock they were holding to the warehouse.
 
+**Low stock.** The warehouse uses each product's own warning level. A seller counts as running low at 2 units or fewer, since product warning levels are sized for the warehouse and would flag almost everything a seller carries.
+
 **Barcodes.** UPC/EAN codes are checked against their check digit when a product is saved, which catches most typos. Shorter internal codes are allowed as-is. Scanning uses the camera through [ZXing](https://github.com/zxing-js/browser), loaded only on screens that need it.
 
 ## Stack
