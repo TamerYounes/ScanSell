@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-const REMEMBER_KEY = "scansell-email";
+const REMEMBER_KEY = "stockpile-email";
 const demoEnabled = process.env.NEXT_PUBLIC_DEMO_ENABLED === "true";
 
 const inputClass =
@@ -80,7 +80,7 @@ function LoginForm() {
               <path d="m21 8v8l-9 5-9-5V8" />
             </svg>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">ScanSell</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Stockpile</h1>
           <p className="mt-1 text-sm text-slate-500">Inventory &amp; Sales Management</p>
         </div>
 

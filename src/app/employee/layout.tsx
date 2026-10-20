@@ -59,7 +59,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
     <div className="min-h-screen bg-[#f7f9fc] text-slate-900">
       <aside className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-[230px] flex-col bg-[#303c97] text-white">
         <div className="px-6 py-7 border-b border-white/10">
-          <div className="text-2xl font-bold tracking-tight">ScanSell</div>
+          <div className="text-2xl font-bold tracking-tight">Stockpile</div>
           <div className="text-sm text-blue-100/80 mt-1">Employee Portal</div>
         </div>
         <nav className="px-3 py-6 space-y-2 flex-1">

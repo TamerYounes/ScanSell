@@ -1,6 +1,6 @@
-# ScanSell
+# Stockpile
 
-[![CI](https://github.com/TamerYounes/ScanSell/actions/workflows/ci.yml/badge.svg)](https://github.com/TamerYounes/ScanSell/actions/workflows/ci.yml)
+[![CI](https://github.com/TamerYounes/Stockpile/actions/workflows/ci.yml/badge.svg)](https://github.com/TamerYounes/Stockpile/actions/workflows/ci.yml)
 
 Inventory and sales tracking for small resale businesses where the owner hands stock to sellers. The owner adds products, assigns stock from the warehouse to each employee and sees every sale. Employees see only what they're holding, scan or tap products into a cart and record the sale.
 

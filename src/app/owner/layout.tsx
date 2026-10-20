@@ -119,7 +119,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
             </svg>
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-800 leading-none">ScanSell</p>
+            <p className="text-sm font-bold text-slate-800 leading-none">Stockpile</p>
             <p className="text-xs text-indigo-600 font-medium mt-0.5">Owner Dashboard</p>
           </div>
         </div>
