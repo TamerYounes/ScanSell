@@ -10,6 +10,7 @@ Inventory and sales tracking for small resale businesses where the owner hands s
 - Add and edit products, scanning the barcode with the phone camera or typing it
 - Assign stock to employees. Raising an employee's quantity takes it out of the warehouse; lowering it puts it back
 - See stock by employee or by product, low-stock warnings, and all sales
+- Add employees with an invite link, and deactivate or reactivate them
 
 **Employee**
 - See the stock assigned to them
@@ -20,7 +21,9 @@ Inventory and sales tracking for small resale businesses where the owner hands s
 
 **Sales and stock changes happen in the database.** `complete_sale` and `assign_inventory` are Postgres functions. A sale looks up real prices (the browser never sends prices), checks the employee is holding enough of each item, then records the sale, deducts stock and writes the inventory log in one transaction. If any item fails, nothing is saved. Stock rows are locked while they're checked, so two requests can't spend the same units.
 
-**Row-level security on every table.** Employees can only read their own stock and sales and can't write to stock tables directly. Every new account is an employee; the owner is set in the database.
+**Row-level security on every table.** Employees can only read their own stock and sales and can't write to stock tables directly. Every policy goes through `get_my_role()`, which returns nothing for inactive accounts, so turning someone off removes their access everywhere at once.
+
+**Adding employees.** The owner creates an invite link (`/join/XXXX-XXXX-XXXX`) and sends it. The code is checked in the sign-up trigger: a valid one makes the new account an active employee and is used up, and a used or expired one fails the sign-up. Accounts created any other way, including directly against the Supabase API, start inactive until the owner gives them access. Deactivating an employee returns the stock they were holding to the warehouse.
 
 **Barcodes.** UPC/EAN codes are checked against their check digit when a product is saved, which catches most typos. Shorter internal codes are allowed as-is. Scanning uses the camera through [ZXing](https://github.com/zxing-js/browser), loaded only on screens that need it.
 
@@ -44,8 +47,10 @@ npm run dev
 Set up the database by running the files in `supabase/migrations` in order (or `supabase db push` with the Supabase CLI). Create your account in Supabase Auth, then make it the owner:
 
 ```sql
-update profiles set role = 'owner' where id = '<your user id>';
+update profiles set role = 'owner', is_active = true where id = '<your user id>';
 ```
+
+After that, add employees from the Employees screen with invite links.
 
 ## Tests
 
@@ -59,7 +64,7 @@ The database tests apply every migration to a fresh in-memory Postgres with a sm
 
 ## Demo
 
-The live demo signs in to a shared owner or employee account. Its data is reset every night by `reset_demo_data`, which deletes all products, sales and assignments and loads a sample shop, so it must only run against a database used for the demo. It's scheduled with `pg_cron`:
+The live demo signs in to a shared owner or employee account. Sign-ups are turned off for the demo project in Supabase (Authentication settings), so invite links can be created but not used. Its data is reset every night by `reset_demo_data`, which deletes all products, sales and assignments and loads a sample shop, so it must only run against a database used for the demo. It's scheduled with `pg_cron`:
 
 ```sql
 select cron.schedule('reset-demo', '0 9 * * *', $$

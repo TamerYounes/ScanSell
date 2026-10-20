@@ -28,9 +28,10 @@ export async function middleware(request: NextRequest) {
   const isLoggedIn = !!user;
   const isLoginPage = pathname === "/";
   const isAuthCallback = pathname.startsWith("/auth/");
+  const isJoinPage = pathname.startsWith("/join/");
 
-  // Let auth callback through unconditionally.
-  if (isAuthCallback) return response;
+  // Auth callbacks and invite links work whether or not you're signed in.
+  if (isAuthCallback || isJoinPage) return response;
 
   // Not logged in and trying to access a protected route → login.
   if (!isLoggedIn && !isLoginPage) {

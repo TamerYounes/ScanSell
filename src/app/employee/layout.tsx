@@ -39,7 +39,7 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
       const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single<DbProfile>();
       if (!data) { router.replace("/"); return; }
       if (data.role === "owner") { router.replace("/owner"); return; }
-      if (!data.is_active) { await supabase.auth.signOut(); router.replace("/"); return; }
+      if (!data.is_active) { await supabase.auth.signOut(); router.replace("/?inactive=1"); return; }
       setProfile(data);
       setLoading(false);
     }

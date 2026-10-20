@@ -21,7 +21,11 @@ function LoginForm() {
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(
-    searchParams.get("demo") === "unavailable" ? "The demo isn't available right now." : "",
+    searchParams.get("demo") === "unavailable"
+      ? "The demo isn't available right now."
+      : searchParams.get("inactive")
+        ? "Your account isn't active. Ask the owner to give you access."
+        : "",
   );
 
   useEffect(() => {

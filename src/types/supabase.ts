@@ -64,6 +64,36 @@ export type Database = {
           },
         ]
       }
+      invites: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: []
+      }
       inventory_logs: {
         Row: {
           action: InventoryActionValue
@@ -270,11 +300,20 @@ export type Database = {
         }
         Returns: undefined
       }
+      check_invite: { Args: { p_code: string }; Returns: boolean }
       complete_sale: {
         Args: { p_items: Json; p_payment_method: string }
         Returns: string
       }
+      create_invite: {
+        Args: never
+        Returns: { code: string; expires_at: string }[]
+      }
       get_my_role: { Args: never; Returns: string }
+      set_employee_active: {
+        Args: { p_active: boolean; p_employee_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

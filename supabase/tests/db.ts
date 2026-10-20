@@ -24,7 +24,7 @@ export async function createTestDb() {
     create function auth.uid() returns uuid language sql stable as $$
       select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
     $$;
-    grant usage on schema public, auth to authenticated;
+    grant usage on schema public, auth to authenticated, anon;
     grant execute on function auth.uid() to authenticated;
   `);
 
@@ -41,17 +41,28 @@ export async function createTestDb() {
 
 export type TestDb = Awaited<ReturnType<typeof createTestDb>>;
 
-/** Creates an auth user (which the trigger turns into a profile). */
+/**
+ * Signs a user up, the way Supabase Auth does: an auth.users row, which the
+ * trigger turns into a profile. Without an invite code that profile starts
+ * inactive, so `activate` turns it on, like an owner approving the account.
+ */
 export async function createUser(
   db: TestDb,
   email: string,
   metadata: Record<string, unknown> = {},
+  { activate = true }: { activate?: boolean } = {},
 ) {
   const { rows } = await db.query<{ id: string }>(
     "insert into auth.users (email, raw_user_meta_data) values ($1, $2) returning id",
     [email, JSON.stringify(metadata)],
   );
-  return rows[0].id;
+  const id = rows[0].id;
+
+  if (activate) {
+    await db.query("update public.profiles set is_active = true where id = $1", [id]);
+  }
+
+  return id;
 }
 
 export async function makeOwner(db: TestDb, userId: string) {
@@ -80,6 +91,17 @@ export async function asUser<T>(db: TestDb, userId: string, fn: () => Promise<T>
   } finally {
     await db.exec("reset role");
     await db.query("select set_config('request.jwt.claim.sub', '', false)");
+  }
+}
+
+/** Runs `fn` as a visitor who isn't signed in. */
+export async function asAnon<T>(db: TestDb, fn: () => Promise<T>) {
+  await db.exec("set role anon");
+
+  try {
+    return await fn();
+  } finally {
+    await db.exec("reset role");
   }
 }
 
