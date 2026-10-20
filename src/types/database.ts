@@ -66,79 +66,8 @@ export interface DbInventoryLog {
   created_at: string;
 }
 
-// ============================================================
-// Supabase Database generic type
-// Used as the type parameter for createClient<Database>()
-// so every .from("table") call is fully typed.
-// ============================================================
-
-export type Database = {
-  public: {
-    Tables: {
-      profiles: {
-        Row: DbProfile;
-        Insert: Omit<DbProfile, "created_at"> & { created_at?: string };
-        Update: Partial<Omit<DbProfile, "id">>;
-      };
-      products: {
-        Row: DbProduct;
-        Insert: Omit<DbProduct, "id" | "created_at"> & {
-          id?: string;
-          created_at?: string;
-        };
-        Update: Partial<Omit<DbProduct, "id" | "created_at">>;
-      };
-      employee_inventory: {
-        Row: DbEmployeeInventory;
-        Insert: Omit<DbEmployeeInventory, "id" | "updated_at"> & {
-          id?: string;
-          updated_at?: string;
-        };
-        Update: Partial<Omit<DbEmployeeInventory, "id">>;
-      };
-      sales: {
-        Row: DbSale;
-        Insert: Omit<DbSale, "id" | "created_at"> & {
-          id?: string;
-          created_at?: string;
-        };
-        Update: Partial<Omit<DbSale, "id" | "created_at">>;
-      };
-      sale_items: {
-        Row: DbSaleItem;
-        Insert: Omit<DbSaleItem, "id"> & { id?: string };
-        Update: Partial<Omit<DbSaleItem, "id">>;
-      };
-      inventory_logs: {
-        Row: DbInventoryLog;
-        Insert: Omit<DbInventoryLog, "id" | "created_at"> & {
-          id?: string;
-          created_at?: string;
-        };
-        Update: Partial<Omit<DbInventoryLog, "id" | "created_at">>;
-      };
-    };
-    Functions: {
-      complete_sale: {
-        Args: { p_payment_method: string; p_items: object };
-        Returns: string; // sale UUID
-      };
-      assign_inventory: {
-        Args: {
-          p_employee_id: string;
-          p_product_id: string;
-          p_quantity: number;
-          p_note?: string;
-        };
-        Returns: void;
-      };
-      get_my_role: {
-        Args: Record<string, never>;
-        Returns: string;
-      };
-    };
-  };
-};
+// Supabase client typing comes from the generated schema types.
+export type { Database, Json } from "./supabase";
 
 // ============================================================
 // App-level types

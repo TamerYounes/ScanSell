@@ -83,9 +83,9 @@ export default function OwnerDashboard() {
       const built: EmployeeSummary[] = emps.map((emp) => {
         const empSales    = sales.filter((s) => s.employee_id === emp.id);
         const todaySales  = empSales.filter((s) => isToday(s.created_at));
-        const empInv      = (invRows ?? []).filter((r: any) => r.employee_id === emp.id);
+        const empInv      = (invRows ?? []).filter((r) => r.employee_id === emp.id);
         const lowCount    = empInv.filter(
-          (r: any) => r.quantity <= r.products.low_stock_limit
+          (r) => r.quantity <= r.products.low_stock_limit
         ).length;
 
         return {
@@ -101,8 +101,8 @@ export default function OwnerDashboard() {
       // Build low-stock alerts across all employees
       const alerts: LowStockAlert[] = [];
       for (const emp of emps) {
-        const empInv = (invRows ?? []).filter((r: any) => r.employee_id === emp.id);
-        for (const row of empInv as any[]) {
+        const empInv = (invRows ?? []).filter((r) => r.employee_id === emp.id);
+        for (const row of empInv) {
           if (row.quantity <= row.products.low_stock_limit) {
             alerts.push({
               product: { ...row.products, stockQuantity: row.quantity },

@@ -24,7 +24,7 @@ export default function EmployeeDashboard() {
         supabase.from("employee_inventory").select("quantity, products(*)").eq("employee_id", user.id),
         supabase.from("sales").select("*").order("created_at", { ascending: false }),
       ]);
-      setInventory((invRows ?? []).map((row: any) => ({ ...row.products, stockQuantity: row.quantity })));
+      setInventory((invRows ?? []).map((row) => ({ ...row.products, stockQuantity: row.quantity })));
       setSales(saleRows ?? []); setLoading(false);
     }
     load();

@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
     // ── 7. Call assign_inventory RPC ──────────────────────────
     // The RPC re-verifies ownership server-side, upserts the
     // employee_inventory row, and writes an inventory_log.
-    const { error: rpcError } = await (supabase.rpc as any)(
+    const { error: rpcError } = await supabase.rpc(
       "assign_inventory",
       {
         p_employee_id: employee_id,
@@ -138,6 +138,24 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: "Only the owner can assign inventory." },
           { status: 403 }
+        );
+      }
+      if (msg.includes("INSUFFICIENT_WAREHOUSE_STOCK")) {
+        return NextResponse.json(
+          { error: "Not enough stock in the warehouse for that quantity." },
+          { status: 400 }
+        );
+      }
+      if (msg.includes("EMPLOYEE_NOT_FOUND")) {
+        return NextResponse.json(
+          { error: "That employee is inactive or doesn't exist." },
+          { status: 400 }
+        );
+      }
+      if (msg.includes("PRODUCT_NOT_FOUND")) {
+        return NextResponse.json(
+          { error: "That product is inactive or doesn't exist." },
+          { status: 400 }
         );
       }
       if (msg.includes("INVALID_QUANTITY")) {

@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     //   - deducts from employee_inventory
     //   - writes inventory_logs with action = SOLD
     // All of the above happens in a single transaction.
-    const { data: saleId, error: rpcError } = await (supabase.rpc as any)(
+    const { data: saleId, error: rpcError } = await supabase.rpc(
       "complete_sale",
       {
         p_payment_method: payment_method,
@@ -132,6 +132,12 @@ export async function POST(request: NextRequest) {
       if (msg.includes("PRODUCT_NOT_FOUND")) {
         return NextResponse.json(
           { error: "One or more products in your cart no longer exist." },
+          { status: 400 }
+        );
+      }
+      if (msg.includes("DUPLICATE_ITEM")) {
+        return NextResponse.json(
+          { error: "A product is listed twice in the cart." },
           { status: 400 }
         );
       }

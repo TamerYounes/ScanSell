@@ -58,8 +58,8 @@ export default function OwnerInventoryPage() {
 
       // Build by-employee view
       const empView: EmployeeInvRow[] = emps.map((emp) => {
-        const empInv = inv.filter((r: any) => r.employee_id === emp.id);
-        const products: ProductWithStock[] = empInv.map((r: any) => {
+        const empInv = inv.filter((r) => r.employee_id === emp.id);
+        const products: ProductWithStock[] = empInv.map((r) => {
           const prod = prods.find((p) => p.id === r.product_id)!;
           return { ...prod, stockQuantity: r.quantity };
         }).filter(Boolean);
@@ -68,8 +68,8 @@ export default function OwnerInventoryPage() {
 
       // Build by-product view
       const prodView: ProductInvRow[] = prods.map((prod) => {
-        const prodInv = inv.filter((r: any) => r.product_id === prod.id);
-        const assignments = prodInv.map((r: any) => {
+        const prodInv = inv.filter((r) => r.product_id === prod.id);
+        const assignments = prodInv.map((r) => {
           const emp = emps.find((e) => e.id === r.employee_id)!;
           return { employee: emp, stockQuantity: r.quantity };
         }).filter((a) => a.employee);

@@ -45,8 +45,8 @@ export default function OwnerEmployeesPage() {
 
       const details: EmployeeDetail[] = (empRows ?? []).map((emp: DbProfile) => {
         const empInv = (invRows ?? [])
-          .filter((r: any) => r.employee_id === emp.id)
-          .map((r: any) => ({ ...r.products, stockQuantity: r.quantity }));
+          .filter((r) => r.employee_id === emp.id)
+          .map((r) => ({ ...r.products, stockQuantity: r.quantity }));
 
         const empSales = (saleRows ?? []).filter(
           (s: DbSale) => s.employee_id === emp.id
