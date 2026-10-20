@@ -82,7 +82,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
       if (data.role !== "owner") { router.replace("/employee"); return; }
       if (!data.is_active) {
         await supabase.auth.signOut();
-        router.replace("/");
+        router.replace("/?inactive=1");
         return;
       }
 

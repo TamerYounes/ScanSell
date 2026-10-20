@@ -106,6 +106,18 @@ describe("reset_demo_data", () => {
     expect(error).toBeNull();
   });
 
+  it("clears invite links", async () => {
+    const owner = await one<{ id: string }>(
+      "select id from auth.users where email = 'owner@demo.test'",
+    );
+    await asUser(db, owner.id, () => db.query("select * from public.create_invite()"));
+
+    await reset();
+
+    const { rows } = await db.query("select 1 from public.invites");
+    expect(rows).toHaveLength(0);
+  });
+
   it("can't be called by signed-in users", async () => {
     const error = await errorOf(asUser(db, alex, () => reset()));
     expect(error).toMatch(/permission denied/);
