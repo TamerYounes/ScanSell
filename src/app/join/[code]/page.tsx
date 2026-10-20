@@ -4,11 +4,12 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { AuthFrame } from "@/components/layout/AuthFrame";
+import { Button, buttonClass } from "@/components/ui/Button";
+import { Loading, Notice } from "@/components/ui/States";
 
 const demoEnabled = process.env.NEXT_PUBLIC_DEMO_ENABLED === "true";
 
-const inputClass =
-  "w-full rounded-lg border border-slate-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
 
 type Status = "checking" | "valid" | "invalid" | "demo" | "confirm-email";
 
@@ -81,105 +82,97 @@ export default function JoinPage({ params }: { params: Promise<{ code: string }>
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f8fd] flex items-center justify-center px-5 py-10">
-      <div className="w-full max-w-[405px]">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Stockpile</h1>
-          <p className="mt-1 text-sm text-slate-500">You&rsquo;ve been invited to join the team</p>
+    <AuthFrame>
+      {status === "checking" && <Loading />}
+
+      {status === "demo" && (
+        <div>
+          <h1 className="text-xl font-semibold text-ink">Joining is off in the demo</h1>
+          <p className="mt-2 text-sm text-muted">
+            This is where a new seller creates their account from an invite link. The public demo
+            doesn&rsquo;t allow new accounts, but you can look around as a seller.
+          </p>
+          <Link href="/" className={buttonClass("primary", "lg", "mt-5 w-full")}>
+            Back to the demo
+          </Link>
         </div>
+      )}
 
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
-          {status === "checking" && <p className="text-sm text-slate-500">Checking your invite...</p>}
-
-          {status === "demo" && (
-            <>
-              <h2 className="text-lg font-bold">Joining is off in the demo</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                This is how a new employee would sign up from an invite link. In the public demo,
-                new accounts can&rsquo;t be created, but you can look around as an employee.
-              </p>
-              <Link
-                href="/"
-                className="mt-5 block w-full rounded-lg bg-[#3d43c6] py-3 text-center text-sm font-bold text-white hover:bg-[#3037ae]"
-              >
-                Back to the demo
-              </Link>
-            </>
-          )}
-
-          {status === "invalid" && (
-            <>
-              <h2 className="text-lg font-bold">This invite link doesn&rsquo;t work</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                It may have been used already or expired. Ask the owner for a new one.
-              </p>
-            </>
-          )}
-
-          {status === "confirm-email" && (
-            <>
-              <h2 className="text-lg font-bold">Check your email</h2>
-              <p className="mt-2 text-sm text-slate-600">
-                We sent a confirmation link to {email.trim().toLowerCase()}. Open it to finish
-                setting up your account.
-              </p>
-            </>
-          )}
-
-          {status === "valid" && (
-            <form onSubmit={handleSubmit}>
-              <h2 className="text-xl font-bold">Create your account</h2>
-              <div className="mt-5 space-y-4">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold">Your name</span>
-                  <input
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    autoComplete="name"
-                    maxLength={80}
-                    className={inputClass}
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold">Email</span>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    autoComplete="email"
-                    className={inputClass}
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-2 block text-sm font-semibold">Password</span>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="new-password"
-                    placeholder="At least 8 characters"
-                    className={inputClass}
-                  />
-                </label>
-              </div>
-
-              {error && (
-                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-                  {error}
-                </div>
-              )}
-
-              <button
-                disabled={submitting}
-                className="mt-6 w-full rounded-lg bg-[#3d43c6] py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#3037ae] disabled:opacity-60"
-              >
-                {submitting ? "Creating account…" : "Join"}
-              </button>
-            </form>
-          )}
+      {status === "invalid" && (
+        <div>
+          <h1 className="text-xl font-semibold text-ink">This invite link doesn&rsquo;t work</h1>
+          <p className="mt-2 text-sm text-muted">
+            It&rsquo;s been used already or it expired. Ask the owner to send a new one.
+          </p>
         </div>
-      </div>
-    </div>
+      )}
+
+      {status === "confirm-email" && (
+        <div>
+          <h1 className="text-xl font-semibold text-ink">Check your email</h1>
+          <p className="mt-2 text-sm text-muted">
+            We sent a confirmation link to {email.trim().toLowerCase()}. Open it to finish setting up
+            your account.
+          </p>
+        </div>
+      )}
+
+      {status === "valid" && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <h1 className="text-xl font-semibold text-ink">Join the team</h1>
+            <p className="mt-1 text-sm text-muted">Create your account to start selling.</p>
+          </div>
+
+          <div>
+            <label htmlFor="name" className="mb-1 block text-sm font-medium text-ink">
+              Your name
+            </label>
+            <input
+              id="name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              autoComplete="name"
+              maxLength={80}
+              className="field"
+            />
+          </div>
+          <div>
+            <label htmlFor="email" className="mb-1 block text-sm font-medium text-ink">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              className="field"
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="mb-1 block text-sm font-medium text-ink">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              className="field"
+            />
+            <p className="mt-1 text-xs text-muted">At least 8 characters.</p>
+          </div>
+
+          {error && <Notice tone="error">{error}</Notice>}
+
+          <Button type="submit" size="lg" fullWidth disabled={submitting}>
+            {submitting ? "Creating account…" : "Create account"}
+          </Button>
+        </form>
+      )}
+    </AuthFrame>
   );
 }

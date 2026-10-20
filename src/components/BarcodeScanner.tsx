@@ -67,12 +67,12 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-black/90" role="dialog" aria-label="Scan barcode">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-ink/95" role="dialog" aria-label="Scan barcode">
       <div className="flex items-center justify-between px-4 py-3 text-white">
-        <p className="text-sm font-semibold">Point the camera at a barcode</p>
+        <p className="text-sm font-medium">Point the camera at a barcode</p>
         <button
           onClick={onClose}
-          className="rounded-lg px-3 py-1.5 text-sm font-semibold hover:bg-white/10"
+          className="rounded px-3 py-1.5 text-sm font-medium hover:bg-white/10"
         >
           Close
         </button>
@@ -84,7 +84,7 @@ export function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps) {
         ) : (
           <>
             <video ref={videoRef} className="h-full w-full object-cover" muted playsInline />
-            <div className="pointer-events-none absolute inset-x-8 top-1/2 h-32 -translate-y-1/2 rounded-xl border-2 border-white/80" />
+            <div className="pointer-events-none absolute inset-x-8 top-1/2 h-32 -translate-y-1/2 rounded border-2 border-white/80" />
           </>
         )}
       </div>

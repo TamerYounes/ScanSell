@@ -1,31 +1,41 @@
+import type { ReactNode } from "react";
 import { classNames } from "@/lib/utils";
+import type { StockLevel } from "@/lib/stock";
 
-type BadgeVariant = "success" | "warning" | "danger" | "info" | "neutral";
+type Variant = "neutral" | "warning" | "danger" | "accent";
 
-interface BadgeProps {
-  children: React.ReactNode;
-  variant?: BadgeVariant;
-  className?: string;
-}
-
-const variantStyles: Record<BadgeVariant, string> = {
-  success: "bg-emerald-100 text-emerald-700",
-  warning: "bg-amber-100 text-amber-700",
-  danger: "bg-red-100 text-red-700",
-  info: "bg-blue-100 text-blue-700",
-  neutral: "bg-slate-100 text-slate-600",
+const variants: Record<Variant, string> = {
+  neutral: "bg-wash text-muted",
+  warning: "bg-amber-50 text-amber-800",
+  danger: "bg-red-50 text-red-700",
+  accent: "bg-pine-light text-pine-dark",
 };
 
-export function Badge({ children, variant = "neutral", className }: BadgeProps) {
+export function Badge({
+  children,
+  variant = "neutral",
+  className,
+}: {
+  children: ReactNode;
+  variant?: Variant;
+  className?: string;
+}) {
   return (
     <span
       className={classNames(
-        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold",
-        variantStyles[variant],
-        className
+        "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
+        variants[variant],
+        className,
       )}
     >
       {children}
     </span>
   );
+}
+
+/** "Low" / "Out" marker. Nothing for normal stock, so only problems stand out. */
+export function StockBadge({ level }: { level: StockLevel }) {
+  if (level === "out") return <Badge variant="danger">Out</Badge>;
+  if (level === "low") return <Badge variant="warning">Low</Badge>;
+  return null;
 }

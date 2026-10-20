@@ -1,57 +1,51 @@
-import { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { classNames } from "@/lib/utils";
 
-type ButtonVariant = "primary" | "secondary" | "danger" | "ghost" | "outline";
-type ButtonSize = "sm" | "md" | "lg";
+type Variant = "primary" | "secondary" | "ghost" | "danger";
+type Size = "sm" | "md" | "lg";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-  children: ReactNode;
-  fullWidth?: boolean;
+const variants: Record<Variant, string> = {
+  primary: "bg-pine text-white hover:bg-pine-dark",
+  secondary: "border border-line bg-white text-ink hover:bg-wash",
+  ghost: "text-muted hover:bg-wash hover:text-ink",
+  danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50",
+};
+
+const sizes: Record<Size, string> = {
+  sm: "h-8 px-3 text-sm",
+  md: "h-10 px-4 text-sm",
+  lg: "h-12 px-5 text-base",
+};
+
+/** Class names for a link styled as a button. */
+export function buttonClass(variant: Variant = "primary", size: Size = "md", extra?: string) {
+  return classNames(
+    "inline-flex items-center justify-center gap-2 rounded font-medium transition-colors",
+    "disabled:pointer-events-none disabled:opacity-50",
+    variants[variant],
+    sizes[size],
+    extra,
+  );
 }
 
-const variantStyles: Record<ButtonVariant, string> = {
-  primary:
-    "bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800 shadow-sm",
-  secondary:
-    "bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300",
-  danger:
-    "bg-red-500 text-white hover:bg-red-600 active:bg-red-700 shadow-sm",
-  ghost:
-    "bg-transparent text-slate-600 hover:bg-slate-100 active:bg-slate-200",
-  outline:
-    "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 active:bg-slate-100 shadow-sm",
-};
-
-const sizeStyles: Record<ButtonSize, string> = {
-  sm: "px-3 py-1.5 text-sm",
-  md: "px-4 py-2.5 text-sm",
-  lg: "px-6 py-3.5 text-base",
-};
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: Variant;
+  size?: Size;
+  fullWidth?: boolean;
+  children: ReactNode;
+}
 
 export function Button({
   variant = "primary",
   size = "md",
   fullWidth,
-  children,
   className,
-  disabled,
+  type = "button",
+  children,
   ...props
 }: ButtonProps) {
   return (
-    <button
-      className={classNames(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition-all duration-150",
-        variantStyles[variant],
-        sizeStyles[size],
-        fullWidth && "w-full",
-        disabled && "opacity-50 cursor-not-allowed pointer-events-none",
-        className
-      )}
-      disabled={disabled}
-      {...props}
-    >
+    <button type={type} className={buttonClass(variant, size, classNames(fullWidth && "w-full", className))} {...props}>
       {children}
     </button>
   );
