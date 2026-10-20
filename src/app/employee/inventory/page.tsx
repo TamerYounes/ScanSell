@@ -25,7 +25,7 @@ export default function EmployeeInventoryPage() {
         .select("quantity, products(*)")
         .eq("employee_id", user.id);
 
-      const inv: ProductWithStock[] = (data ?? []).map((row: any) => ({
+      const inv: ProductWithStock[] = (data ?? []).map((row) => ({
         ...row.products,
         stockQuantity: row.quantity,
       }));
@@ -100,7 +100,7 @@ export default function EmployeeInventoryPage() {
         </Card>
       ) : filtered.length === 0 ? (
         <Card className="p-6 text-center">
-          <p className="text-slate-400 text-sm">No results for "{search}"</p>
+          <p className="text-slate-400 text-sm">No results for &ldquo;{search}&rdquo;</p>
         </Card>
       ) : (
         <div className="space-y-2">

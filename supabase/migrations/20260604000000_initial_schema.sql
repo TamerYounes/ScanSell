@@ -1,18 +1,10 @@
--- ============================================================
--- ScanSell — Supabase Schema
--- Paste this entire file into the Supabase SQL Editor and run.
--- ============================================================
+-- Initial schema: profiles (owner / employee), products, stock held by each
+-- employee, sales and an inventory log. Sales and assignments go through
+-- security-definer functions so prices and stock are checked in the database.
+--
+-- Matches the hosted database as first deployed.
 
--- ── Extensions ───────────────────────────────────────────────
 create extension if not exists "uuid-ossp";
-
--- ── Clean slate (safe to re-run during dev) ──────────────────
-drop table if exists inventory_logs   cascade;
-drop table if exists sale_items       cascade;
-drop table if exists sales            cascade;
-drop table if exists employee_inventory cascade;
-drop table if exists products         cascade;
-drop table if exists profiles         cascade;
 
 -- ── profiles ─────────────────────────────────────────────────
 -- One row per auth.users entry. Created by trigger on sign-up.
@@ -369,31 +361,3 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure handle_new_user();
-
--- ============================================================
--- Seed data  (run once — comment out after first run)
--- ============================================================
-
--- NOTE: You must create users in Supabase Auth first
--- (Dashboard → Authentication → Users → "Add user").
--- After creating each user, copy their UUID and use it below.
-
--- Example seed — replace UUIDs with your real auth user IDs:
---
--- insert into profiles (id, full_name, role, avatar_color) values
---   ('AUTH_UUID_OWNER',   'Sarah Chen',      'owner',    'bg-indigo-500'),
---   ('AUTH_UUID_MARCUS',  'Marcus Williams', 'employee', 'bg-emerald-500'),
---   ('AUTH_UUID_PRIYA',   'Priya Patel',     'employee', 'bg-amber-500'),
---   ('AUTH_UUID_JORDAN',  'Jordan Lee',      'employee', 'bg-rose-500');
---
--- insert into products (name, barcode, category, price, warehouse_stock, low_stock_limit) values
---   ('Organic Whole Milk (1L)',        '012345678901', 'Dairy',     3.49,  100, 6),
---   ('Free-Range Eggs (12pk)',         '012345678902', 'Dairy',     5.99,   80, 5),
---   ('Sourdough Bread Loaf',           '012345678903', 'Bakery',    6.49,   60, 4),
---   ('Cold-Press Orange Juice (500ml)','012345678904', 'Beverages', 4.99,   50, 5),
---   ('Greek Yogurt Plain (500g)',      '012345678905', 'Dairy',     4.29,   90, 6),
---   ('Almond Butter (250g)',           '012345678906', 'Pantry',    8.99,   40, 3),
---   ('Sparkling Water 6-Pack',         '012345678907', 'Beverages', 5.49,   70, 4),
---   ('Granola Bar Mixed Box (12pk)',   '012345678908', 'Snacks',    9.99,   55, 5),
---   ('Cheddar Cheese Block (200g)',    '012345678909', 'Dairy',     5.79,   65, 4),
---   ('Maple Syrup Pure (250ml)',       '012345678910', 'Pantry',   12.99,   30, 3);

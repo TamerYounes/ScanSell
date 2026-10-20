@@ -14,7 +14,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Start with a plain pass-through response that we may mutate.
-  let response = NextResponse.next({ request });
+  const response = NextResponse.next({ request });
 
   // Wire up the Supabase client so it can refresh the session cookie.
   const { supabase } = createMiddlewareClient(request, response);

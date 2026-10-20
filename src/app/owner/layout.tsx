@@ -27,6 +27,15 @@ const navItems = [
     ),
   },
   {
+    href: "/owner/products",
+    label: "Products",
+    icon: (active: boolean) => (
+      <svg className={classNames("w-5 h-5", active ? "text-indigo-600" : "text-slate-400")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6v12M7 6v12M10 6v12M14 6v12M17 6v12M20 6v12" />
+      </svg>
+    ),
+  },
+  {
     href: "/owner/inventory",
     label: "Inventory",
     icon: (active: boolean) => (
@@ -110,7 +119,7 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
             </svg>
           </div>
           <div>
-            <p className="text-sm font-bold text-slate-800 leading-none">ScanSell</p>
+            <p className="text-sm font-bold text-slate-800 leading-none">Stockpile</p>
             <p className="text-xs text-indigo-600 font-medium mt-0.5">Owner Dashboard</p>
           </div>
         </div>

@@ -66,7 +66,7 @@ export default function AssignInventoryPage() {
       .select("product_id, quantity")
       .eq("employee_id", emp.id);
 
-    const stock: CurrentStock[] = (data ?? []).map((r: any) => ({
+    const stock: CurrentStock[] = (data ?? []).map((r) => ({
       product_id: r.product_id,
       quantity:   r.quantity,
     }));
@@ -110,6 +110,14 @@ export default function AssignInventoryPage() {
     if (!res.ok) {
       setMessage({ text: json.error ?? "Failed to save.", success: false });
     } else {
+      // The database moved the difference between the warehouse and the employee.
+      const delta = qty - getCurrentQty(product.id);
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === product.id ? { ...p, warehouse_stock: p.warehouse_stock - delta } : p
+        )
+      );
+
       // Update local stock snapshot
       setCurrentStock((prev) => {
         const exists = prev.find((r) => r.product_id === product.id);
@@ -217,7 +225,9 @@ export default function AssignInventoryPage() {
             {products.map((product) => {
               const currentQty  = getCurrentQty(product.id);
               const pendingQty  = quantities[product.id] ?? 0;
+              const maxQty      = currentQty + product.warehouse_stock;
               const isDirty     = pendingQty !== currentQty;
+              const overLimit   = pendingQty > maxQty;
               const isSaving    = saving === product.id;
 
               return (
@@ -234,6 +244,10 @@ export default function AssignInventoryPage() {
                           {formatCurrency(Number(product.price))}
                         </span>
                       </div>
+                      <p className={`text-xs mt-1 ${overLimit ? "text-red-600 font-semibold" : "text-slate-500"}`}>
+                        {product.warehouse_stock} in warehouse
+                        {overLimit && ` · max ${maxQty} for ${selectedEmp.full_name.split(" ")[0]}`}
+                      </p>
                     </div>
                     <div className="text-right flex-shrink-0">
                       <p className="text-xs text-slate-400">Currently</p>
@@ -278,7 +292,7 @@ export default function AssignInventoryPage() {
                         onClick={() =>
                           setQuantities((prev) => ({
                             ...prev,
-                            [product.id]: (prev[product.id] ?? 0) + 1,
+                            [product.id]: Math.min(maxQty, (prev[product.id] ?? 0) + 1),
                           }))
                         }
                         className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 font-bold transition-colors"
@@ -292,7 +306,7 @@ export default function AssignInventoryPage() {
                       size="sm"
                       variant={isDirty ? "primary" : "secondary"}
                       onClick={() => handleSave(product)}
-                      disabled={isSaving || !isDirty}
+                      disabled={isSaving || !isDirty || overLimit}
                     >
                       {isSaving ? (
                         <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
